@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Undertone — Soundscape Generator</title>
+<meta name="description" content="Generate immersive ambient soundscapes from any scene description.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%238a9e50'/></svg>">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0c08;
+    --bg2: #161410;
+    --bg3: #1e1c14;
+    --border: #2e2a1c;
+    --accent: #8a9e50;
+    --accent2: #728640;
+    --text: #ece8d8;
+    --text2: #908878;
+    --success: #4caf78;
+    --error: #e05b5b;
+    --warn: #e0a030;
+    --radius: 10px;
+    --card-radius: 12px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  /* ── Layout ── */
+  #app { max-width: 680px; margin: 0 auto; padding: 24px 16px 80px; }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+  }
+
+  .logo-wrap { display: flex; align-items: baseline; gap: 8px; }
+  .logo { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .version { font-size: 11px; color: var(--text2); letter-spacing: 0.3px; }
+
+  .header-btn {
+    background: none; border: 1px solid var(--border);
+    color: var(--text2); border-radius: 8px;
+    padding: 6px 10px; cursor: pointer; font-size: 18px;
+    transition: border-color .2s, color .2s;
+    display: flex; align-items: center;
+  }
+  .header-btn:hover { border-color: var(--accent); color: var(--text); }
+
+  /* ── Mixer modal ── */
+  .modal--mixer { max-width: 560px; }
+
+  #mixer-list {
+    max-height: 55vh;
+    overflow-y: auto;
+    margin: 0 -24px;
+    padding: 0 24px;
+  }
+
+  .mixer-empty {
+    font-size: 14px;
+    color: var(--text2);
+    text-align: center;
+    padding: 32px 0;
+  }
+
+  .mixer-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .mixer-item:last-child { border-bottom: none; }
+
+  .mixer-check { width: 15px; height: 15px; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
+
+  .mixer-item-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .mixer-label { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mixer-scene { display: block; font-size: 11px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .mixer-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  #mixer-play {
+    flex: 1;
+    background: var(--bg3);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px;
+    min-width: 110px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s;
+  }
+  #mixer-play:hover:not(:disabled) { border-color: var(--accent); }
+  #mixer-play:disabled { opacity: 0.5; cursor: not-allowed; }
+  #mixer-play.playing { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Input section ── */
+  #input-section { margin-bottom: 28px; }
+
+  textarea {
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+    line-height: 1.6;
+    padding: 14px 16px;
+    resize: vertical;
+    min-height: 120px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--text2); }
+
+  #generate-btn {
+    margin-top: 12px;
+    width: 100%;
+    background: var(--bg3);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 13px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s, border-color .2s, opacity .2s;
+  }
+  #generate-btn:hover:not(:disabled) { background: var(--border); border-color: var(--accent); }
+  #generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Status / error bar ── */
+  #status-bar {
+    margin-top: 12px;
+    font-size: 14px;
+    color: var(--text2);
+    min-height: 20px;
+    text-align: center;
+  }
+  #status-bar.error { color: var(--error); }
+
+  /* ── Layer cards ── */
+  #layers-section { margin-bottom: 28px; }
+
+  .section-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    letter-spacing: -0.3px;
+  }
+
+  .layer-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    transition: border-color .2s;
+  }
+  .layer-card.ready { border-color: #2e2a1c; }
+  .layer-card.loading { border-color: var(--accent); }
+  .layer-card.cached { border-color: #2a3a2a; }
+  .layer-card.errored { border-color: var(--error); }
+
+  .layer-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .layer-label { font-weight: 600; font-size: 15px; }
+
+  .layer-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .badge-loading { background: #1a1e0a; color: var(--accent); }
+  .badge-ready   { background: #1a2e1a; color: var(--success); }
+  .badge-cached  { background: #1a2e1a; color: #6fc99a; }
+  .badge-error   { background: #2e1a1a; color: var(--error); }
+  .badge-waiting { background: var(--bg3); color: var(--text2); }
+
+  .layer-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .mute-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    border-radius: 6px;
+    width: 32px; height: 32px;
+    font-size: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background .2s, color .2s;
+  }
+  .mute-btn:hover { background: var(--border); color: var(--text); }
+  .mute-btn.muted { background: #2a2020; color: var(--error); border-color: var(--error); }
+
+  .vol-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+  }
+  .vol-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+  .vol-slider::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: none;
+  }
+
+  .vol-label {
+    font-size: 12px;
+    color: var(--text2);
+    width: 36px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* loading spinner inline */
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid #1a1e0a;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Playback bar ── */
+  #playback-bar {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    padding: 14px 16px;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    z-index: 10;
+  }
+  #playback-bar.visible { display: flex; }
+
+  #play-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    padding: 10px 0;
+    width: 110px;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  #play-btn:hover { background: var(--accent2); }
+  #play-btn.playing { background: #1a1e0a; }
+
+  #export-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    border-radius: 50px;
+    padding: 9px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color .2s, color .2s;
+    white-space: nowrap;
+  }
+  #export-btn:hover { border-color: var(--accent); color: var(--text); }
+  #export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #playback-title {
+    font-size: 14px;
+    color: var(--text2);
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── History ── */
+  #history-section { }
+
+  .history-item {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+  }
+  .history-item:hover { border-color: var(--accent); background: var(--bg3); }
+
+  .history-title { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+  .history-meta { font-size: 12px; color: var(--text2); }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .modal h2 { font-size: 18px; margin-bottom: 20px; }
+
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; color: var(--text2); margin-bottom: 6px; font-weight: 500; }
+
+  .field input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 14px;
+    font-family: monospace;
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .field input:focus { border-color: var(--accent); }
+
+  .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+
+  .btn-primary {
+    flex: 1;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  .btn-primary:hover { background: var(--accent2); }
+
+  .btn-ghost {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: border-color .2s, color .2s;
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--text); }
+
+  /* ── Welcome modal ── */
+  .modal--welcome { max-width: 520px; }
+
+  .welcome-logo {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+  }
+  .welcome-logo span { color: var(--accent); }
+
+  .welcome-tagline {
+    font-size: 14px;
+    color: var(--text2);
+    margin-bottom: 24px;
+  }
+
+  .welcome-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .welcome-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+  }
+
+  .welcome-privacy {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text2);
+    margin-bottom: 16px;
+  }
+  .welcome-privacy strong { color: var(--text); }
+
+  .welcome-keys {
+    font-size: 13px;
+    color: var(--text2);
+    margin-bottom: 24px;
+    line-height: 1.8;
+  }
+  .welcome-keys a {
+    color: var(--accent);
+    text-decoration: none;
+    display: block;
+  }
+  .welcome-keys a:hover { text-decoration: underline; }
+
+  /* ── Misc ── */
+  .hidden { display: none !important; }
+  #no-history { font-size: 14px; color: var(--text2); text-align: center; padding: 20px 0; }
+
+  /* ── Footer ── */
+  #footer {
+    margin-top: 48px;
+    padding-bottom: 16px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text2);
+    opacity: 0.5;
+  }
+  #footer a { color: inherit; text-decoration: none; }
+  #footer a:hover { opacity: 1; color: var(--text); }
+
+  /* ── Debug panel ── */
+  #debug-section { margin-top: 32px; }
+
+  #debug-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    border-radius: var(--radius);
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    transition: border-color .2s, color .2s;
+  }
+  #debug-toggle:hover { border-color: var(--accent); color: var(--text); }
+
+  #debug-log {
+    display: none;
+    margin-top: 8px;
+    background: #0a0908;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    max-height: 340px;
+    overflow-y: auto;
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  #debug-log.open { display: block; }
+
+  .log-entry { margin-bottom: 8px; border-bottom: 1px solid #221e10; padding-bottom: 8px; }
+  .log-entry:last-child { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+  .log-time { color: #5a5540; margin-right: 6px; }
+  .log-info  { color: #7a8e58; }
+  .log-ok    { color: var(--success); }
+  .log-warn  { color: var(--warn); }
+  .log-error { color: var(--error); }
+  .log-raw {
+    margin-top: 4px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: #a0a880;
+    background: #0e0d08;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+  }
+
+  #debug-clear {
+    float: right;
+    background: none;
+    border: none;
+    color: var(--text2);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 0;
+  }
+  #debug-clear:hover { color: var(--error); }
+
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="logo-wrap">
+      <div class="logo"><span>undertone</span></div>
+      <div class="version">v1.2</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button id="help-btn" class="header-btn" title="Getting started" style="font-size:14px;font-weight:700">?</button>
+      <button id="mixer-btn" class="header-btn" title="Clip mixer">
+        <svg width="16" height="13" viewBox="0 0 16 13" fill="currentColor">
+          <rect x="0" y="0"  width="9"  height="2" rx="1"/>
+          <rect x="0" y="5"  width="16" height="2" rx="1"/>
+          <rect x="5" y="10" width="11" height="2" rx="1"/>
+        </svg>
+      </button>
+      <button id="settings-btn" class="header-btn" title="Settings">⚙</button>
+    </div>
+  </header>
+
+  <section id="input-section">
+    <textarea id="scene-input" placeholder="Paste a scene, story excerpt, or description…&#10;&#10;Example: A medieval tavern on a stormy night. Patrons huddle near a roaring fire as rain lashes the roof. Wind whistles through cracked shutters."></textarea>
+    <button id="generate-btn">Generate Soundscape</button>
+    <div id="status-bar"></div>
+  </section>
+
+  <section id="layers-section" class="hidden">
+    <div class="section-title" id="scene-title"></div>
+    <div id="layer-cards"></div>
+  </section>
+
+  <section id="history-section">
+    <div class="section-title">History</div>
+    <div id="history-list">
+      <div id="no-history">No scenes yet — generate one above!</div>
+    </div>
+  </section>
+
+<section id="debug-section">
+    <button id="debug-toggle">🐛 Debug log <span id="debug-count"></span></button>
+    <div id="debug-log">
+      <button id="debug-clear">clear</button>
+    </div>
+  </section>
+
+  <footer id="footer">
+    made with ♥ by <a href="https://github.com/BartlomiejLewandowski" target="_blank" rel="noopener noreferrer">Bartek</a>
+    &nbsp;·&nbsp;
+    <a href="https://github.com/BartlomiejLewandowski/claude-ambience-soundscape" target="_blank" rel="noopener noreferrer">undertone on github</a>
+  </footer>
+</div>
+
+<!-- Playback bar -->
+<div id="playback-bar">
+  <div id="playback-title"></div>
+  <button id="play-btn">▶ Play</button>
+  <button id="export-btn" title="Export as standalone HTML file">⬇ Export</button>
+</div>
+
+<!-- Welcome modal -->
+<div class="modal-overlay" id="welcome-modal">
+  <div class="modal modal--welcome">
+    <div class="welcome-logo"><span>undertone</span></div>
+    <p class="welcome-tagline">AI-powered ambient soundscape generator</p>
+
+    <div class="welcome-steps">
+      <div class="welcome-step">
+        <span class="step-num">1</span>
+        <div>Describe any scene — a stormy tavern, a moonlit forest, a space station airlock…</div>
+      </div>
+      <div class="welcome-step">
+        <span class="step-num">2</span>
+        <div>GPT-5 breaks it into 5 distinct environmental sound layers</div>
+      </div>
+      <div class="welcome-step">
+        <span class="step-num">3</span>
+        <div>ElevenLabs generates each as a 30-second seamless audio loop</div>
+      </div>
+      <div class="welcome-step">
+        <span class="step-num">4</span>
+        <div>All layers can play together — adjust volume on each independently</div>
+      </div>
+    </div>
+
+    <div class="welcome-privacy">
+      <strong>&#128274; Your keys, your data.</strong> Undertone runs entirely in your browser.
+      Your API keys are stored locally and requests go directly to OpenAI and ElevenLabs —
+      never through any intermediary. No accounts, no tracking, no backend.
+      Generated audio tracks are cached in your browser's IndexedDB so revisiting a scene
+      costs nothing — no repeat API calls.
+    </div>
+
+    <div class="welcome-privacy">
+      <strong>&#128228; Share as a single file.</strong> Once a soundscape is ready, hit
+      <em>Export</em> to download a self-contained HTML file with all audio embedded.
+      Send it to anyone — they can open it in a browser and play it with no install,
+      no keys, no internet connection required.
+    </div>
+
+    <div class="welcome-keys">
+      You'll need API keys from:
+      <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI → platform.openai.com/api-keys</a>
+      <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener noreferrer">ElevenLabs → elevenlabs.io → Settings → API Keys</a>
+    </div>
+
+    <button class="btn-primary" id="welcome-start">Get Started &#8594;</button>
+  </div>
+</div>
+
+<!-- Mixer modal -->
+<div class="modal-overlay" id="mixer-modal">
+  <div class="modal modal--mixer">
+    <h2>Clip Mixer</h2>
+    <div id="mixer-list"></div>
+    <div class="mixer-actions">
+      <button id="mixer-play">▶ Play Mix</button>
+      <button class="btn-ghost" id="mixer-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <h2>⚙ Settings</h2>
+    <div class="field">
+      <label>OpenAI API Key</label>
+      <input type="password" id="openai-key" placeholder="sk-…" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>ElevenLabs API Key</label>
+      <input type="password" id="elevenlabs-key" placeholder="xi-…" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="settings-cancel">Cancel</button>
+      <button class="btn-primary" id="settings-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="dist/bundle.js"></script>
+</body>
+</html>
