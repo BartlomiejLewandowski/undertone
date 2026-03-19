@@ -11,6 +11,9 @@ import { showPlaybackBar, hidePlaybackBar } from './state';
 function openSettings(): void {
   ($('openai-key') as HTMLInputElement).value     = localStorage.getItem('openai_key')     || '';
   ($('elevenlabs-key') as HTMLInputElement).value = localStorage.getItem('elevenlabs_key') || '';
+  ($('openai-model') as HTMLInputElement).value       = localStorage.getItem('openai_model')     || '';
+  ($('openai-tokens') as HTMLInputElement).value      = localStorage.getItem('openai_tokens')    || '';
+  ($('openai-reasoning') as HTMLSelectElement).value  = localStorage.getItem('openai_reasoning') || '';
   $('settings-modal').classList.add('open');
 }
 
@@ -44,10 +47,16 @@ $('settings-modal').addEventListener('click', e => {
 $('settings-save').addEventListener('click', () => {
   const ak = ($('openai-key') as HTMLInputElement).value.trim();
   const ek = ($('elevenlabs-key') as HTMLInputElement).value.trim();
+  const mo = ($('openai-model') as HTMLInputElement).value.trim();
+  const tk = ($('openai-tokens') as HTMLInputElement).value.trim();
   if (ak) localStorage.setItem('openai_key', ak);
   if (ek) localStorage.setItem('elevenlabs_key', ek);
+  const re = ($('openai-reasoning') as HTMLSelectElement).value;
+  if (mo) localStorage.setItem('openai_model', mo); else localStorage.removeItem('openai_model');
+  if (tk) localStorage.setItem('openai_tokens', tk); else localStorage.removeItem('openai_tokens');
+  if (re) localStorage.setItem('openai_reasoning', re); else localStorage.removeItem('openai_reasoning');
   closeSettings();
-  setStatus('API keys saved.');
+  setStatus('Settings saved.');
   setTimeout(() => setStatus(''), 2000);
 });
 

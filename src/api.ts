@@ -7,21 +7,28 @@ export interface SceneResponse {
 }
 
 export async function callOpenAI(sceneText: string, openaiKey: string): Promise<SceneResponse> {
-  dbgLog('info', `OpenAI → POST chat/completions (model: ${OPENAI_MODEL})`);
+  const model     = localStorage.getItem('openai_model')     || OPENAI_MODEL;
+  const tokens    = parseInt(localStorage.getItem('openai_tokens') || '16000', 10);
+  const reasoning = localStorage.getItem('openai_reasoning') || null;
+  dbgLog('info', `OpenAI → POST chat/completions (model: ${model}, max_completion_tokens: ${tokens}${reasoning ? `, reasoning_effort: ${reasoning}` : ''})`);
+
+  const body: Record<string, unknown> = {
+    model,
+    max_completion_tokens: tokens,
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user',   content: sceneText },
+    ],
+  };
+  if (reasoning) body.reasoning_effort = reasoning;
+
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${openaiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      max_completion_tokens: 3000,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user',   content: sceneText },
-      ],
-    }),
+    body: JSON.stringify(body),
   });
 
   dbgLog('info', `OpenAI ← HTTP ${resp.status} ${resp.statusText}`);
@@ -32,8 +39,16 @@ export async function callOpenAI(sceneText: string, openaiKey: string): Promise<
     throw new Error(`OpenAI error ${resp.status}: ${err?.error?.message || resp.statusText}`);
   }
 
-  const data = await resp.json() as { choices?: Array<{ message?: { content?: string } }> };
-  dbgLog('ok', 'OpenAI raw response', data);
+  const data = await resp.json() as {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number; completion_tokens_details?: { reasoning_tokens?: number } };
+  };
+
+  if (data.usage) {
+    const u = data.usage;
+    const reasoning = u.completion_tokens_details?.reasoning_tokens ?? 0;
+    dbgLog('info', `OpenAI tokens — prompt: ${u.prompt_tokens}, completion: ${u.completion_tokens}${reasoning ? ` (${reasoning} reasoning)` : ''}, total: ${u.total_tokens}`);
+  }
 
   const raw = data.choices?.[0]?.message?.content ?? '';
   dbgLog('info', 'OpenAI content string', raw);
