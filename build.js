@@ -21,5 +21,6 @@ if (watch) {
   await ctx.rebuild();
   await ctx.dispose();
   copyFileSync('index.html', 'public/index.html');
+  copyFileSync('example.html', 'public/example.html');
   console.log('Build complete → public/');
 }
