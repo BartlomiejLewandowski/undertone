@@ -25,7 +25,9 @@ export async function generate(): Promise<void> {
   }
 
   const btn = $('generate-btn') as HTMLButtonElement;
+  const originalLabel = btn.textContent!;
   btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Analysing scene…';
   stopPlayback();
   hidePlaybackBar();
 
@@ -50,6 +52,7 @@ export async function generate(): Promise<void> {
     $('layers-section').scrollIntoView({ behavior: 'smooth' });
 
     parsed.layers.forEach((layer, i) => container.appendChild(createLayerCard(layer, i)));
+    btn.innerHTML = '<span class="spinner"></span>Generating audio…';
 
     const layerKeys: string[] = [];
     const sceneLayers: Array<{ label: string; sfx_prompt: string; blob: Blob }> = [];
@@ -109,6 +112,7 @@ export async function generate(): Promise<void> {
     setStatus((e as Error).message, true);
   } finally {
     btn.disabled = false;
+    btn.textContent = originalLabel;
   }
 }
 
