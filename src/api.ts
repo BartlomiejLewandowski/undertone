@@ -7,10 +7,11 @@ export interface SceneResponse {
 }
 
 export async function callOpenAI(sceneText: string, openaiKey: string): Promise<SceneResponse> {
-  const model     = localStorage.getItem('openai_model')     || OPENAI_MODEL;
-  const tokens    = parseInt(localStorage.getItem('openai_tokens') || '16000', 10);
-  const reasoning = localStorage.getItem('openai_reasoning') || null;
-  dbgLog('info', `OpenAI → POST chat/completions (model: ${model}, max_completion_tokens: ${tokens}${reasoning ? `, reasoning_effort: ${reasoning}` : ''})`);
+  const model           = localStorage.getItem('openai_model')           || OPENAI_MODEL;
+  const tokens          = parseInt(localStorage.getItem('openai_tokens') || '16000', 10);
+  const reasoning       = localStorage.getItem('openai_reasoning')       || null;
+  const reasoningTokens = localStorage.getItem('openai_reasoning_tokens') ? parseInt(localStorage.getItem('openai_reasoning_tokens')!, 10) : null;
+  dbgLog('info', `OpenAI → POST chat/completions (model: ${model}, max_completion_tokens: ${tokens}${reasoning ? `, reasoning_effort: ${reasoning}` : ''}${reasoningTokens ? `, max_reasoning_tokens: ${reasoningTokens}` : ''})`);
 
   const body: Record<string, unknown> = {
     model,
@@ -21,6 +22,7 @@ export async function callOpenAI(sceneText: string, openaiKey: string): Promise<
     ],
   };
   if (reasoning) body.reasoning_effort = reasoning;
+  if (reasoningTokens) body.max_reasoning_tokens = reasoningTokens;
 
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',

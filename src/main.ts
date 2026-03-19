@@ -14,6 +14,7 @@ function openSettings(): void {
   ($('openai-model') as HTMLInputElement).value       = localStorage.getItem('openai_model')     || '';
   ($('openai-tokens') as HTMLInputElement).value      = localStorage.getItem('openai_tokens')    || '';
   ($('openai-reasoning') as HTMLSelectElement).value  = localStorage.getItem('openai_reasoning') || '';
+  ($('openai-reasoning-tokens') as HTMLInputElement).value = localStorage.getItem('openai_reasoning_tokens') || '';
   $('settings-modal').classList.add('open');
 }
 
@@ -55,6 +56,8 @@ $('settings-save').addEventListener('click', () => {
   if (mo) localStorage.setItem('openai_model', mo); else localStorage.removeItem('openai_model');
   if (tk) localStorage.setItem('openai_tokens', tk); else localStorage.removeItem('openai_tokens');
   if (re) localStorage.setItem('openai_reasoning', re); else localStorage.removeItem('openai_reasoning');
+  const rt = ($('openai-reasoning-tokens') as HTMLInputElement).value.trim();
+  if (rt) localStorage.setItem('openai_reasoning_tokens', rt); else localStorage.removeItem('openai_reasoning_tokens');
   closeSettings();
   setStatus('Settings saved.');
   setTimeout(() => setStatus(''), 2000);
